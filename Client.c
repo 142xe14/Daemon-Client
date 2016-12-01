@@ -8,11 +8,40 @@
 int main(int argc, char *argv[]){
 
     char returnCmd[SIZE_DATA];
+    struct requete my_request;
 
+    //Control usage of program
     if(argc != 2){
         printf("Usage Error! \n");
         exit(EXIT_FAILURE);
     }
+
+    //Copy argv[1] in our struct request
+    if(strcpy(my_request.cmd, argv[1]) == NULL){
+        fprintf(stderr, "error strcpy \n");
+        exit(EXIT_FAILURE);
+    }
+
+    //open the semaphore
+    sem_t *sem_p = sem_open(SEMAPHORE_NAME, O_RDWR);
+    //Check for errors
+    if(sem_p == SEM_FAILED){
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
+    //Create first pipe
+    if(mkfifo(PIPE1, S_IRUSR | S_IWUSR) == - 1){
+        perror("mkfifo");
+        exit(EXIT_FAILURE);
+    }
+    //Create the second pipe
+    if(mkfifo(TUBE2, S_IRUSR | S_IWUSR) == -1){
+        perror("mkfifo");
+        exit(EXIT_FAILURE);
+    }
+
+
 
     //Open pipe1 in Write mode
     int fd = open(PIPE1, O_WRONLY);
@@ -47,6 +76,18 @@ int main(int argc, char *argv[]){
 
     //Print the command return
     printf("%s \n", returnCmd);
+
+    //Close pipe1
+    if(unlink(PIPE1) == -1){
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    //Close tube2
+    if(unlink(TUBE2) == -1){
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
 
     exit(EXIT_SUCCESS);
 }

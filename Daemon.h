@@ -10,8 +10,20 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <semaphore.h>
 
 #define PIPE1 "/tmp/pipe1"
 #define TUBE2 "/tmp/tube2"
+#define SIZE_DATA 256 //The maximum size of the command
+#define SHM_NAME "/tmp/shm_daemon"
+#define SEMAPHORE_NAME "/tmp/my_sem_123456789098765"
+
+
+struct requete{
+    char cmd[SIZE_DATA];
+    pid_t pid;
+};
 
 #endif //SE_DAEMON_H_H

@@ -5,19 +5,39 @@
 
 #include "Daemon.h"
 
+
 int main(){
 
     char cmd[SIZE_DATA];
-    //Create first pipe
-    if(mkfifo(PIPE1, S_IRUSR | S_IWUSR) == - 1){
-        perror("mkfifo");
+
+    //We create our semaphore
+    // On commence par créer notre sémaphore.
+    sem_t *sem_p = sem_open(SEMAPHORE_NAME, O_RDWR | O_CREAT | O_EXCL,
+                            S_IRUSR | S_IWUSR, 0);
+
+    //Check for error
+    if (sem_p == SEM_FAILED){
+        perror("sem_open");
         exit(EXIT_FAILURE);
     }
-    //Create the second pipe
-    if(mkfifo(TUBE2, S_IRUSR | S_IWUSR) == -1){
-        perror("mkfifo");
+
+    // We create our shm
+    int shm_fd = shm_open(SHM_NAME, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+
+    //check for error
+    if (shm_fd == -1) {
+        perror("shm_open");
         exit(EXIT_FAILURE);
     }
+
+    //Define size of shm with ftruncate
+    if (ftruncate(shm_fd, SIZE_DATA) == -1) {
+        perror("ftruncate");
+        exit(EXIT_FAILURE);
+    }
+
+    //Wait for data write in shm
+    sem_wait(sem_p);
 
     //Open the first pipe in read mode
     int fd = open(PIPE1, O_RDONLY);
@@ -51,16 +71,17 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    //Close pipe1
-    if(unlink(PIPE1) == -1){
-        perror("unlink");
+    //Close our semaphore
+    if (sem_unlink(SEMAPHORE_NAME) == -1) {
+        perror("sem_unlink");
         exit(EXIT_FAILURE);
     }
 
-    //Close tube2
-    if(unlink(TUBE2) == -1){
-        perror("unlink");
+    //Close shm
+    if (shm_unlink(SHM_NAME) == -1) {
+        perror("shm_unlink");
         exit(EXIT_FAILURE);
     }
+
     exit(EXIT_SUCCESS);
 }
