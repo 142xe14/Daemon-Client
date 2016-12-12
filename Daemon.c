@@ -5,13 +5,39 @@
 
 #include "Daemon.h"
 
+void *cmd(void *data){
+
+    struct myshmstruct *msq = data;
+    //execl("/bin/ls", "ls");
+    //char cmd[SIZE_DATA];
+
+    //Open the first pipe in write mode
+    int fd = open(TUBE2, O_WRONLY);
+
+    //Check for error in open
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+    dup2(fd, STDOUT_FILENO);
+    system(msq->buffer);
+    //char cmdreturn[SIZE_DATA];
+    //dup2(fd[1], 1);
+    //Write the message in pipe1
+    /*if(write(fd, msq->buffer, SIZE_DATA) == -1){
+        perror("write");
+        exit(EXIT_FAILURE);
+    }*/
+
+    //printf("(TEST) We read this message : %s \n", cmd);
+
+    pthread_exit(NULL);
+}
 
 int main(){
 
-    char cmd[SIZE_DATA];
-
+    pthread_t tr;
     //We create our semaphore
-    // On commence par créer notre sémaphore.
     sem_t *sem_p = sem_open(SEMAPHORE_NAME, O_RDWR | O_CREAT | O_EXCL,
                             S_IRUSR | S_IWUSR, 0);
 
@@ -36,38 +62,22 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
+    //mapping of virtual address
+    struct myshmstruct *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (msq == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
     //Wait for data write in shm
-    sem_wait(sem_p);
-
-    //Open the first pipe in read mode
-    int fd = open(PIPE1, O_RDONLY);
-
-    //Check for error in open
-    if (fd == -1) {
-        perror("open");
+    if (sem_wait(sem_p) == -1) {
+        perror("sem_wait");
         exit(EXIT_FAILURE);
     }
-
-    //Read the message in pipe1
-    if(read(fd, cmd, SIZE_DATA) == -1){
-        perror("read");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("(TEST) We read this message : %s \n", cmd);
-
-    //Open the second pipe in write mode
-    int fdw = open(TUBE2, O_WRONLY);
-
-    //Check for error in open
-    if (fdw == -1){
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-
-    //Write the cmd in Tube2
-    if(write(fdw, cmd, SIZE_DATA) == -1){
-        perror("write");
+    printf("%s \n", msq->buffer);
+    //cmd(msq);
+    if(pthread_create(&tr, NULL, cmd, msq) == -1){
+        perror("pthread");
         exit(EXIT_FAILURE);
     }
 

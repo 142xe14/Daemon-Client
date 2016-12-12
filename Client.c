@@ -2,7 +2,10 @@
 // Created by Julien Debroize on 22/11/2016.
 //
 
+//SHM = Segment mémoire partagé
+//SEM = Semaphore
 #include "Daemon.h"
+
 
 //Use Daemon for launch command
 int main(int argc, char *argv[]){
@@ -22,8 +25,18 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    //open the shm
+    int shm_fd = shm_open(SHM_NAME, O_RDWR, S_IRUSR | S_IWUSR);
+
+    //check for error
+    if (shm_fd == -1) {
+        perror("shm_open");
+        exit(EXIT_FAILURE);
+    }
+
     //open the semaphore
     sem_t *sem_p = sem_open(SEMAPHORE_NAME, O_RDWR);
+
     //Check for errors
     if(sem_p == SEM_FAILED){
         perror("sem_open");
@@ -35,16 +48,15 @@ int main(int argc, char *argv[]){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
+
     //Create the second pipe
     if(mkfifo(TUBE2, S_IRUSR | S_IWUSR) == -1){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
 
-
-
     //Open pipe1 in Write mode
-    int fd = open(PIPE1, O_WRONLY);
+    /*int fd = open(PIPE1, O_WRONLY);
 
     //Check for error in open
     if(fd == -1){
@@ -57,8 +69,24 @@ int main(int argc, char *argv[]){
     if(write(fd, argv[1], SIZE_DATA) == -1){
         perror("write");
         exit(EXIT_FAILURE);
+    }*/
+
+    //mapping of virtual address
+    struct myshmstruct *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (msq == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
     }
 
+    if(strcpy(msq->buffer, argv[1]) == NULL){
+        fprintf(stderr, "error strcpy \n");
+        exit(EXIT_FAILURE);
+    }
+
+    if(sem_post(sem_p) == -1){
+        perror("sem_post");
+        exit(EXIT_FAILURE);
+    }
     //Open tube2 in read mode
     int fdr = open(TUBE2, O_RDONLY);
 
@@ -84,10 +112,10 @@ int main(int argc, char *argv[]){
     }
 
     //Close tube2
-    if(unlink(TUBE2) == -1){
+    /*if(unlink(TUBE2) == -1){
         perror("unlink");
         exit(EXIT_FAILURE);
-    }
+    }*/
 
     exit(EXIT_SUCCESS);
 }
