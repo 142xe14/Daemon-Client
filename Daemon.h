@@ -13,17 +13,25 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <semaphore.h>
+#include <pthread.h>
+#include <signal.h>
 
 #define PIPE1 "/tmp/pipe1"
 #define TUBE2 "/tmp/tube2"
 #define SIZE_DATA 256 //The maximum size of the command
-#define SHM_NAME "/tmp/shm_daemon"
-#define SEMAPHORE_NAME "/tmp/my_sem_123456789098765"
-
+#define SHM_NAME "/shm_daemon" //the partaged memory
+#define SEMAPHORE_NAME "/my_sem_123456789098765"
+#define MAXCMD 2048 //The maximum number of command. After that, Daemon automatically shutdown
 
 struct requete{
     char cmd[SIZE_DATA];
     pid_t pid;
+};
+
+struct myshmstruct{
+    int head;
+    int queue;
+    char buffer[SIZE_DATA];
 };
 
 #endif //SE_DAEMON_H_H

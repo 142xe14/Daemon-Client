@@ -3,7 +3,29 @@
 //
 //Wait for a client and launch command
 
+//Daemon need to launch more than one command
 #include "Daemon.h"
+
+void closing(int signum) {
+    if (signum < 0) {
+        fprintf(stderr, "Wrong signal number\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("Daemon will properly be close \n");
+    //Close our semaphore
+    if (sem_unlink(SEMAPHORE_NAME) == -1) {
+        perror("sem_unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    //Close shm
+    if (shm_unlink(SHM_NAME) == -1) {
+        perror("shm_unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    exit(EXIT_SUCCESS);
+}
 
 void *cmd(void *data){
 
@@ -35,6 +57,21 @@ void *cmd(void *data){
 }
 
 int main(){
+
+    //For signal
+    struct sigaction action;
+    action.sa_handler = closing;
+    action.sa_flags = 0;
+    if (sigfillset(&action.sa_mask) == -1) {
+        perror("sigfilltset");
+        exit(EXIT_FAILURE);
+    }
+
+    // Ctrl+c
+    if (sigaction(SIGINT, &action, NULL) == -1) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
 
     pthread_t tr;
     //We create our semaphore
@@ -69,28 +106,18 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    //Wait for data write in shm
-    if (sem_wait(sem_p) == -1) {
-        perror("sem_wait");
-        exit(EXIT_FAILURE);
-    }
-    printf("%s \n", msq->buffer);
-    //cmd(msq);
-    if(pthread_create(&tr, NULL, cmd, msq) == -1){
-        perror("pthread");
-        exit(EXIT_FAILURE);
-    }
+    while(1) {
+        //Wait for data write in shm
+        if (sem_wait(sem_p) == -1) {
+            perror("sem_wait");
+            exit(EXIT_FAILURE);
+        }
 
-    //Close our semaphore
-    if (sem_unlink(SEMAPHORE_NAME) == -1) {
-        perror("sem_unlink");
-        exit(EXIT_FAILURE);
-    }
-
-    //Close shm
-    if (shm_unlink(SHM_NAME) == -1) {
-        perror("shm_unlink");
-        exit(EXIT_FAILURE);
+        //Launch the command in a new thread
+        if (pthread_create(&tr, NULL, cmd, msq) == -1) {
+            perror("pthread");
+            exit(EXIT_FAILURE);
+        }
     }
 
     exit(EXIT_SUCCESS);

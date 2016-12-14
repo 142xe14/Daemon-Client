@@ -6,15 +6,48 @@
 //SEM = Semaphore
 #include "Daemon.h"
 
+void closing(int signum) {
+    if (signum < 0) {
+        fprintf(stderr, "Wrong signal number\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("Stop by ctrl+c \n");
+    //Close pipe1
+    if (unlink(PIPE1) == -1) {
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    //Close tube2
+    if (unlink(TUBE2) == -1) {
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+}
 
 //Use Daemon for launch command
 int main(int argc, char *argv[]){
+
+    //For signal
+    struct sigaction action;
+    action.sa_handler = closing;
+    action.sa_flags = 0;
+    if (sigfillset(&action.sa_mask) == -1) {
+        perror("sigfilltset");
+        exit(EXIT_FAILURE);
+    }
+
+    // Ctrl+c
+    if (sigaction(SIGINT, &action, NULL) == -1) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
 
     char returnCmd[SIZE_DATA];
     struct requete my_request;
 
     //Control usage of program
-    if(argc != 2){
+    if(argc < 2){
         printf("Usage Error! \n");
         exit(EXIT_FAILURE);
     }
@@ -112,10 +145,10 @@ int main(int argc, char *argv[]){
     }
 
     //Close tube2
-    /*if(unlink(TUBE2) == -1){
+    if(unlink(TUBE2) == -1){
         perror("unlink");
         exit(EXIT_FAILURE);
-    }*/
+    }
 
     exit(EXIT_SUCCESS);
 }
