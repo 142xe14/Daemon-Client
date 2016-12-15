@@ -30,8 +30,6 @@ void closing(int signum) {
 void *cmd(void *data){
 
     struct myshmstruct *msq = data;
-    //execl("/bin/ls", "ls");
-    //char cmd[SIZE_DATA];
 
     //Open the first pipe in write mode
     int fd = open(TUBE2, O_WRONLY);
@@ -43,15 +41,6 @@ void *cmd(void *data){
     }
     dup2(fd, STDOUT_FILENO);
     system(msq->buffer);
-    //char cmdreturn[SIZE_DATA];
-    //dup2(fd[1], 1);
-    //Write the message in pipe1
-    /*if(write(fd, msq->buffer, SIZE_DATA) == -1){
-        perror("write");
-        exit(EXIT_FAILURE);
-    }*/
-
-    //printf("(TEST) We read this message : %s \n", cmd);
 
     pthread_exit(NULL);
 }
@@ -120,5 +109,6 @@ int main(){
         }
     }
 
+    printf("You can't see this message! \n");
     exit(EXIT_SUCCESS);
 }

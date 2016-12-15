@@ -2,8 +2,6 @@
 // Created by Julien Debroize on 22/11/2016.
 //
 
-//SHM = Segment mémoire partagé
-//SEM = Semaphore
 #include "Daemon.h"
 
 void closing(int signum) {
@@ -87,22 +85,6 @@ int main(int argc, char *argv[]){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
-
-    //Open pipe1 in Write mode
-    /*int fd = open(PIPE1, O_WRONLY);
-
-    //Check for error in open
-    if(fd == -1){
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("%s \n", argv[1]);
-    //write argv[1] in the pipe
-    if(write(fd, argv[1], SIZE_DATA) == -1){
-        perror("write");
-        exit(EXIT_FAILURE);
-    }*/
 
     //mapping of virtual address
     struct myshmstruct *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);

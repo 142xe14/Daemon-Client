@@ -21,7 +21,6 @@
 #define SIZE_DATA 256 //The maximum size of the command
 #define SHM_NAME "/shm_daemon" //the partaged memory
 #define SEMAPHORE_NAME "/my_sem_123456789098765"
-#define MAXCMD 2048 //The maximum number of command. After that, Daemon automatically shutdown
 
 struct requete{
     char cmd[SIZE_DATA];
@@ -29,8 +28,6 @@ struct requete{
 };
 
 struct myshmstruct{
-    int head;
-    int queue;
     char buffer[SIZE_DATA];
 };
 
