@@ -39,8 +39,15 @@ void *cmd(void *data){
         perror("open");
         exit(EXIT_FAILURE);
     }
-    dup2(fd, STDOUT_FILENO);
-    system(msq->buffer);
+    if(dup2(fd, STDOUT_FILENO) == -1){
+        perror("dup2");
+        exit(EXIT_FAILURE);
+    }
+
+    if(system(msq->buffer) == -1){
+        perror("System");
+        exit(EXIT_FAILURE);
+    }
 
     pthread_exit(NULL);
 }
