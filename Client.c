@@ -86,7 +86,7 @@ int main(int argc, char *argv[]){
     int sizeOfPathPipe = SIZEOFPATH + sizeOfPid;
 
     char firstPipe[sizeOfPathPipe];
-    
+
     //Create first pipe
     if(mkfifo(PIPE1, S_IRUSR | S_IWUSR) == - 1){
         perror("mkfifo");
