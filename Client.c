@@ -3,6 +3,7 @@
 //
 
 #include "Daemon.h"
+#include "Client.h"
 
 void closing(int signum) {
     if (signum < 0) {
@@ -56,6 +57,9 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    //Copy programm PID in our struct request
+    my_request.pid = getpid(); // No need to check for error, this function always work (see man for detail)
+
     //open the shm
     int shm_fd = shm_open(SHM_NAME, O_RDWR, S_IRUSR | S_IWUSR);
 
@@ -74,6 +78,15 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    /*TODO
+     * CREATE A PIPE WITH PID AS NAME LIKE /tmp/Client12345
+    */
+
+    int sizeOfPid = sizeof(my_request.pid); //On récupère la taille du PID
+    int sizeOfPathPipe = SIZEOFPATH + sizeOfPid;
+
+    char firstPipe[sizeOfPathPipe];
+    
     //Create first pipe
     if(mkfifo(PIPE1, S_IRUSR | S_IWUSR) == - 1){
         perror("mkfifo");
