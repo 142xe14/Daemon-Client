@@ -5,24 +5,8 @@
 #include "Daemon.h"
 #include "Client.h"
 
-void closing(int signum) {
-    if (signum < 0) {
-        fprintf(stderr, "Wrong signal number\n");
-        exit(EXIT_FAILURE);
-    }
-    printf("Stop by ctrl+c \n");
-    //Close pipe1
-    if (unlink(PIPE1) == -1) {
-        perror("unlink");
-        exit(EXIT_FAILURE);
-    }
-
-    //Close tube2
-    if (unlink(TUBE2) == -1) {
-        perror("unlink");
-        exit(EXIT_FAILURE);
-    }
-}
+char *ANSWERPIPE = NULL; //The pipe for the daemon response
+void closing(int signum); //This function is call in case of signal interruption for properly close the programm
 
 //Use Daemon for launch command
 int main(int argc, char *argv[]){
@@ -44,7 +28,6 @@ int main(int argc, char *argv[]){
 
     char returnCmd[SIZE_DATA];
     struct requete my_request;
-
     //Control usage of program
     if(argc < 2){
         printf("Usage Error! \n");
@@ -77,16 +60,41 @@ int main(int argc, char *argv[]){
         perror("sem_open");
         exit(EXIT_FAILURE);
     }
-
-    /*TODO
-     * CREATE A PIPE WITH PID AS NAME LIKE /tmp/Client12345
-    */
-
-    int sizeOfPid = sizeof(my_request.pid); //On récupère la taille du PID
+    /**ANSWERPIPE GENERATION PART**/
+    //Create a pipe with pid name like /tmp/client12345
+    //For simplification, we create a string name answerpipe and we copy it in ANSWERPIPE
+    //We take the length of pid
+    int sizeOfPid = sizeof(my_request.pid);
     int sizeOfPathPipe = SIZEOFPATH + sizeOfPid;
+    //We convert the pid to a string
+    char pidString[sizeOfPid];
+    if(snprintf(pidString, sizeOfPid + 1, "%d", getpid()) == 0){
+        perror("snprintf");
+        exit(EXIT_FAILURE);
+    }
 
-    char firstPipe[sizeOfPathPipe];
+    char answerPipe[sizeOfPathPipe];
+    char *path = "/tmp/client";
+    if(strcpy(answerPipe, path) == NULL){
+        perror("strcpy");
+        exit(EXIT_FAILURE);
+    }
 
+    if(strcat(answerPipe, pidString) == NULL){
+        perror("strcat");
+        exit(EXIT_FAILURE);
+    }
+    //answerPipe now equal /tmp/ClientPID, we copy it in ANSWERPIPE
+
+    ANSWERPIPE = malloc(sizeof(answerPipe));//Memory allocation of ANSWERPIPE
+    if(strcat(ANSWERPIPE, answerPipe) == NULL){
+        perror("strcat");
+        exit(EXIT_FAILURE);
+    }
+
+    /**ANSWERPIPE GENERATION PART END**/
+
+    /**PIPE CREATION PART**/
     //Create first pipe
     if(mkfifo(PIPE1, S_IRUSR | S_IWUSR) == - 1){
         perror("mkfifo");
@@ -98,7 +106,14 @@ int main(int argc, char *argv[]){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
+    
+    //Create answerPipe
+    if(mkfifo(ANSWERPIPE, S_IRUSR | S_IWUSR) == -1){
+        perror("mkfifo");
+        exit(EXIT_FAILURE);
+    }
 
+    /**PIPE GENERATION END**/
     //mapping of virtual address
     struct myshmstruct *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (msq == MAP_FAILED) {
@@ -144,6 +159,43 @@ int main(int argc, char *argv[]){
         perror("unlink");
         exit(EXIT_FAILURE);
     }
+
+    //Close ANSWERPIPE
+    if(unlink(ANSWERPIPE) == -1){
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    free(ANSWERPIPE); //No return control because free return nothing, see man for more details
+
+    exit(EXIT_SUCCESS);
+}
+
+void closing(int signum) {
+    if (signum < 0) {
+        fprintf(stderr, "Wrong signal number\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("Stop by ctrl+c \n");
+    //Close pipe1
+    if (unlink(PIPE1) == -1) {
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    //Close tube2
+    if (unlink(TUBE2) == -1) {
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    //Close ANSWERPIPE
+    if(unlink(ANSWERPIPE) == -1){
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    free(ANSWERPIPE); //No return control because free return nothing, see man for more details
 
     exit(EXIT_SUCCESS);
 }
