@@ -17,7 +17,6 @@
 #include <signal.h>
 
 #define PIPE1 "/tmp/pipe1"
-#define TUBE2 "/tmp/tube2"
 #define SIZE_DATA 256 //The maximum size of the command
 #define SHM_NAME "/shm_daemon" //the partaged memory
 #define SEMAPHORE_NAME "/my_sem_123456789098765"

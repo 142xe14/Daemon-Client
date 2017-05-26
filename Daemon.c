@@ -29,10 +29,26 @@ void closing(int signum) {
 
 void *cmd(void *data){
 
-    struct myshmstruct *msq = data;
+    struct requete *msq = data;
+    int sizePid = sizeof(msq->pid);
+
+    printf ("%d\n", sizePid);
+    char pidString[sizePid];
+    if(snprintf(pidString, sizePid + 1, "%d", msq->pid) == 0){
+        perror("snprintf");
+        exit(EXIT_FAILURE);
+    }
+
+    char tubeName[12] = "/tmp/client";
+    if(strcat(tubeName, pidString) == NULL){
+        perror("strcat");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%s\n", tubeName);
 
     //Open the first pipe in write mode
-    int fd = open(TUBE2, O_WRONLY);
+    int fd = open(tubeName, O_WRONLY);
 
     //Check for error in open
     if (fd == -1) {
@@ -44,7 +60,7 @@ void *cmd(void *data){
         exit(EXIT_FAILURE);
     }
 
-    if(system(msq->buffer) == -1){
+    if(system(msq->cmd) == -1){
         perror("System");
         exit(EXIT_FAILURE);
     }
@@ -96,7 +112,7 @@ int main(){
     }
 
     //mapping of virtual address
-    struct myshmstruct *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    struct requete *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (msq == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);

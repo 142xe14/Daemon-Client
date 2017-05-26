@@ -91,18 +91,12 @@ int main(int argc, char *argv[]){
         perror("strcat");
         exit(EXIT_FAILURE);
     }
-
+    printf("%s\n", answerPipe);
     /**ANSWERPIPE GENERATION PART END**/
 
     /**PIPE CREATION PART**/
     //Create first pipe
     if(mkfifo(PIPE1, S_IRUSR | S_IWUSR) == - 1){
-        perror("mkfifo");
-        exit(EXIT_FAILURE);
-    }
-
-    //Create the second pipe
-    if(mkfifo(TUBE2, S_IRUSR | S_IWUSR) == -1){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
@@ -115,23 +109,25 @@ int main(int argc, char *argv[]){
 
     /**PIPE GENERATION END**/
     //mapping of virtual address
-    struct myshmstruct *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    struct requete *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (msq == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);
     }
 
-    if(strcpy(msq->buffer, argv[1]) == NULL){
+    if(strcpy(msq->cmd, argv[1]) == NULL){
         fprintf(stderr, "error strcpy \n");
         exit(EXIT_FAILURE);
     }
+
+    msq->pid = getpid();
 
     if(sem_post(sem_p) == -1){
         perror("sem_post");
         exit(EXIT_FAILURE);
     }
-    //Open tube2 in read mode
-    int fdr = open(TUBE2, O_RDONLY);
+    //Open ANSWERPIPE in read mode
+    int fdr = open(ANSWERPIPE, O_RDONLY);
 
     //Check for error in open
     if(fdr == -1){
@@ -139,7 +135,7 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    //Read the message in tube2 (the command return)
+    //Read the message in ANSWERPIPE (the command return)
     if(read(fdr, returnCmd, SIZE_DATA) == -1){
         perror("read");
         exit(EXIT_FAILURE);
@@ -150,12 +146,6 @@ int main(int argc, char *argv[]){
 
     //Close pipe1
     if(unlink(PIPE1) == -1){
-        perror("unlink");
-        exit(EXIT_FAILURE);
-    }
-
-    //Close tube2
-    if(unlink(TUBE2) == -1){
         perror("unlink");
         exit(EXIT_FAILURE);
     }
@@ -179,12 +169,6 @@ void closing(int signum) {
     printf("Stop by ctrl+c \n");
     //Close pipe1
     if (unlink(PIPE1) == -1) {
-        perror("unlink");
-        exit(EXIT_FAILURE);
-    }
-
-    //Close tube2
-    if (unlink(TUBE2) == -1) {
         perror("unlink");
         exit(EXIT_FAILURE);
     }
