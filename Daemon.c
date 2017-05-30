@@ -18,6 +18,11 @@ void closing(int signum) {
         exit(EXIT_FAILURE);
     }
 
+    if(sem_unlink(SEMAPHORE_TWO) == -1){
+        perror("sem_unlink");
+        exit(EXIT_FAILURE);
+    }
+
     //Close shm
     if (shm_unlink(SHM_NAME) == -1) {
         perror("shm_unlink");
@@ -28,13 +33,12 @@ void closing(int signum) {
 }
 
 void *cmd(void *data){
-
-    struct requete *msq = data;
-    int sizePid = sizeof(msq->pid);
-
-    printf ("%d\n", sizePid);
+    struct tabRequest *msq = data;
+    int sizePid = sizeof(msq->myRequest[0]->pid);
+    int requestNumber = sizeof(msq->myRequest);
+    printf ("la taille du tableau est de : %d\n", requestNumber);
     char pidString[sizePid];
-    if(snprintf(pidString, sizePid + 1, "%d", msq->pid) == 0){
+    if(snprintf(pidString, sizePid + 1, "%d", msq->myRequest[0]->pid) == 0){
         perror("snprintf");
         exit(EXIT_FAILURE);
     }
@@ -60,7 +64,7 @@ void *cmd(void *data){
         exit(EXIT_FAILURE);
     }
 
-    if(system(msq->cmd) == -1){
+    if(system(msq->myRequest[0]->cmd) == -1){
         perror("System");
         exit(EXIT_FAILURE);
     }
@@ -96,6 +100,16 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
+    //We create our second semaphore
+    sem_t *sem_two = sem_open(SEMAPHORE_TWO, O_RDWR | O_CREAT | O_EXCL,
+                            S_IRUSR | S_IWUSR, 1);
+
+    //Check for error
+    if (sem_two == SEM_FAILED){
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
     // We create our shm
     int shm_fd = shm_open(SHM_NAME, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 
@@ -112,11 +126,17 @@ int main(){
     }
 
     //mapping of virtual address
-    struct requete *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    struct tabRequest *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (msq == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);
     }
+
+    /*struct requete *stdRequete = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (stdRequete == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }*/
 
     while(1) {
         //Wait for data write in shm

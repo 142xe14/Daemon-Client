@@ -60,6 +60,16 @@ int main(int argc, char *argv[]){
         perror("sem_open");
         exit(EXIT_FAILURE);
     }
+
+    //open the second semaphore
+    sem_t *sem_two = sem_open(SEMAPHORE_TWO, O_RDWR);
+
+    //Check for errors
+    if(sem_two == SEM_FAILED){
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
     /**ANSWERPIPE GENERATION PART**/
     //Create a pipe with pid name like /tmp/client12345
     //For simplification, we create a string name answerpipe and we copy it in ANSWERPIPE
@@ -109,18 +119,44 @@ int main(int argc, char *argv[]){
 
     /**PIPE GENERATION END**/
     //mapping of virtual address
-    struct requete *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    struct tabRequest *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (msq == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);
     }
-
-    if(strcpy(msq->cmd, argv[1]) == NULL){
-        fprintf(stderr, "error strcpy \n");
+    //We block the semaphore and write the message
+    if(sem_wait(sem_two) == -1){
+        perror("sem_wait");
         exit(EXIT_FAILURE);
+
     }
 
-    msq->pid = getpid();
+    /*struct requete *stdRequete  = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (msq == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }*/
+
+    struct requete *stdRequete = argv[1], pid;
+    /*stdRequete->pid = getpid();
+    if(strcpy(stdRequete->cmd, argv[1]) == NULL){
+        perror("strcpy \n");
+        exit(EXIT_FAILURE);
+    }*/
+
+    msq->myRequest[0]->pid = stdRequete->pid;
+    printf("%d\n", msq->myRequest[0]->pid);
+
+    if(strcpy(msq->myRequest[0]->cmd, stdRequete->cmd) == NULL){
+        perror("strcpy \n");
+        exit(EXIT_FAILURE);
+    }
+    printf("le pid est %d et la commande est %s \n", msq->myRequest[0]->pid, msq->myRequest[0]->cmd);
+    //We unlock the semaphore
+    if(sem_post(sem_two) == -1){
+        perror("sem_post");
+        exit(EXIT_FAILURE);
+    }
 
     if(sem_post(sem_p) == -1){
         perror("sem_post");
