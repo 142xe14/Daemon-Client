@@ -17,10 +17,14 @@
 #include <signal.h>
 
 #define PIPE1 "/tmp/pipe1"
-#define TUBE2 "/tmp/tube2"
 #define SIZE_DATA 256 //The maximum size of the command
 #define SHM_NAME "/shm_daemon" //the partaged memory
 #define SEMAPHORE_NAME "/my_sem_123456789098765"
+#define SEMAPHORE_TWO "/my_sem_987654321012345"
+#define MAX_REQUEST 100 //Maximum number of request
+struct tabRequest{
+    struct requete *myRequest[MAX_REQUEST];
+};
 
 struct requete{
     char cmd[SIZE_DATA];

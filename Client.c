@@ -3,25 +3,10 @@
 //
 
 #include "Daemon.h"
+#include "Client.h"
 
-void closing(int signum) {
-    if (signum < 0) {
-        fprintf(stderr, "Wrong signal number\n");
-        exit(EXIT_FAILURE);
-    }
-    printf("Stop by ctrl+c \n");
-    //Close pipe1
-    if (unlink(PIPE1) == -1) {
-        perror("unlink");
-        exit(EXIT_FAILURE);
-    }
-
-    //Close tube2
-    if (unlink(TUBE2) == -1) {
-        perror("unlink");
-        exit(EXIT_FAILURE);
-    }
-}
+char *ANSWERPIPE = NULL; //The pipe for the daemon response
+void closing(int signum); //This function is call in case of signal interruption for properly close the programm
 
 //Use Daemon for launch command
 int main(int argc, char *argv[]){
@@ -43,7 +28,6 @@ int main(int argc, char *argv[]){
 
     char returnCmd[SIZE_DATA];
     struct requete my_request;
-
     //Control usage of program
     if(argc < 2){
         printf("Usage Error! \n");
@@ -55,6 +39,9 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "error strcpy \n");
         exit(EXIT_FAILURE);
     }
+
+    //Copy programm PID in our struct request
+    my_request.pid = getpid(); // No need to check for error, this function always work (see man for detail)
 
     //open the shm
     int shm_fd = shm_open(SHM_NAME, O_RDWR, S_IRUSR | S_IWUSR);
@@ -74,27 +61,105 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    //open the second semaphore
+    sem_t *sem_two = sem_open(SEMAPHORE_TWO, O_RDWR);
+
+    //Check for errors
+    if(sem_two == SEM_FAILED){
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
+    /**ANSWERPIPE GENERATION PART**/
+    //Create a pipe with pid name like /tmp/client12345
+    //For simplification, we create a string name answerpipe and we copy it in ANSWERPIPE
+    //We take the length of pid
+    int sizeOfPid = sizeof(my_request.pid);
+    int sizeOfPathPipe = SIZEOFPATH + sizeOfPid;
+    //We convert the pid to a string
+    char pidString[sizeOfPid];
+    if(snprintf(pidString, sizeOfPid + 1, "%d", getpid()) == 0){
+        perror("snprintf");
+        exit(EXIT_FAILURE);
+    }
+
+    char answerPipe[sizeOfPathPipe];
+    char *path = "/tmp/client";
+    if(strcpy(answerPipe, path) == NULL){
+        perror("strcpy");
+        exit(EXIT_FAILURE);
+    }
+
+    if(strcat(answerPipe, pidString) == NULL){
+        perror("strcat");
+        exit(EXIT_FAILURE);
+    }
+    //answerPipe now equal /tmp/ClientPID, we copy it in ANSWERPIPE
+
+    ANSWERPIPE = malloc(sizeof(answerPipe));//Memory allocation of ANSWERPIPE
+    if(strcat(ANSWERPIPE, answerPipe) == NULL){
+        perror("strcat");
+        exit(EXIT_FAILURE);
+    }
+    printf("%s\n", answerPipe);
+    /**ANSWERPIPE GENERATION PART END**/
+
+    /**PIPE CREATION PART**/
     //Create first pipe
     if(mkfifo(PIPE1, S_IRUSR | S_IWUSR) == - 1){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
 
-    //Create the second pipe
-    if(mkfifo(TUBE2, S_IRUSR | S_IWUSR) == -1){
+    //Create answerPipe
+    if(mkfifo(ANSWERPIPE, S_IRUSR | S_IWUSR) == -1){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
 
+    /**PIPE GENERATION END**/
     //mapping of virtual address
-    struct myshmstruct *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    struct tabRequest *msq = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (msq == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);
     }
+    //We block the semaphore and write the message
+    if(sem_wait(sem_two) == -1){
+        perror("sem_wait");
+        exit(EXIT_FAILURE);
 
-    if(strcpy(msq->buffer, argv[1]) == NULL){
-        fprintf(stderr, "error strcpy \n");
+    }
+
+    /*struct requete *stdRequete  = mmap(NULL, SIZE_DATA, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (msq == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }*/
+
+    /* struct requete *stdRequete = argv[1], pid; */
+
+    struct requete *stdRequete = malloc(sizeof(struct requete));
+    strncpy(stdRequete->cmd, argv[1], strlen(argv[1]) + 1);
+    stdRequete->pid = getpid();
+
+    /*stdRequete->pid = getpid();
+    if(strcpy(stdRequete->cmd, argv[1]) == NULL){
+        perror("strcpy \n");
+        exit(EXIT_FAILURE);
+    }*/
+
+    msq->myRequest[0]->pid = stdRequete->pid;
+    printf("%d\n", msq->myRequest[0]->pid);
+
+    if(strcpy(msq->myRequest[0]->cmd, stdRequete->cmd) == NULL){
+        perror("strcpy \n");
+        exit(EXIT_FAILURE);
+    }
+    printf("le pid est %d et la commande est %s \n", msq->myRequest[0]->pid, msq->myRequest[0]->cmd);
+    //We unlock the semaphore
+    if(sem_post(sem_two) == -1){
+        perror("sem_post");
         exit(EXIT_FAILURE);
     }
 
@@ -102,8 +167,8 @@ int main(int argc, char *argv[]){
         perror("sem_post");
         exit(EXIT_FAILURE);
     }
-    //Open tube2 in read mode
-    int fdr = open(TUBE2, O_RDONLY);
+    //Open ANSWERPIPE in read mode
+    int fdr = open(ANSWERPIPE, O_RDONLY);
 
     //Check for error in open
     if(fdr == -1){
@@ -111,7 +176,7 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    //Read the message in tube2 (the command return)
+    //Read the message in ANSWERPIPE (the command return)
     if(read(fdr, returnCmd, SIZE_DATA) == -1){
         perror("read");
         exit(EXIT_FAILURE);
@@ -126,11 +191,38 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    //Close tube2
-    if(unlink(TUBE2) == -1){
+    //Close ANSWERPIPE
+    if(unlink(ANSWERPIPE) == -1){
         perror("unlink");
         exit(EXIT_FAILURE);
     }
+
+    free(ANSWERPIPE); //No return control because free return nothing, see man for more details
+
+    free(stdRequete);
+
+    exit(EXIT_SUCCESS);
+}
+
+void closing(int signum) {
+    if (signum < 0) {
+        fprintf(stderr, "Wrong signal number\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("Stop by ctrl+c \n");
+    //Close pipe1
+    if (unlink(PIPE1) == -1) {
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    //Close ANSWERPIPE
+    if(unlink(ANSWERPIPE) == -1){
+        perror("unlink");
+        exit(EXIT_FAILURE);
+    }
+
+    free(ANSWERPIPE); //No return control because free return nothing, see man for more details
 
     exit(EXIT_SUCCESS);
 }
