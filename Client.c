@@ -110,7 +110,7 @@ int main(int argc, char *argv[]){
         perror("mkfifo");
         exit(EXIT_FAILURE);
     }
-    
+
     //Create answerPipe
     if(mkfifo(ANSWERPIPE, S_IRUSR | S_IWUSR) == -1){
         perror("mkfifo");
@@ -137,7 +137,12 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }*/
 
-    struct requete *stdRequete = argv[1], pid;
+    /* struct requete *stdRequete = argv[1], pid; */
+
+    struct requete *stdRequete = malloc(sizeof(struct requete));
+    strncpy(stdRequete->cmd, argv[1], strlen(argv[1]) + 1);
+    stdRequete->pid = getpid();
+
     /*stdRequete->pid = getpid();
     if(strcpy(stdRequete->cmd, argv[1]) == NULL){
         perror("strcpy \n");
@@ -193,6 +198,8 @@ int main(int argc, char *argv[]){
     }
 
     free(ANSWERPIPE); //No return control because free return nothing, see man for more details
+
+    free(stdRequete);
 
     exit(EXIT_SUCCESS);
 }
